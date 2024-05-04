@@ -1,18 +1,19 @@
-MODEL_VERSION=llava_loraft_dpo_our_ocrvqa8kfilter_diffu500_textvqa8kfilter_diffu500_r1024_a2048
+MODEL_VERSION=llava_loraft_dpo_hardneg
 
-OCR_DPO_DATA=data/step3/ocrvqa_dpo_8k_diffusion_step500.json
-TEXT_DPO_DATA=data/step3/textvqa_dpo_8k_diffusion_step500.json
+TEXT_DPO_DATA=/home/haoli/Documents/t2v_metrics/datasets/GenAI-Image-527/genaibench_dpo_dataset.json
+# MODEL_CKPT=/home/haoli/Documents/t2v_metrics/hf_cache/models--liuhaotian--llava-v1.5-7b/snapshots/12e054b30e8e061f423c7264bc97d4248232e965
+MODEL_CKPT=liuhaotian/llava-v1.5-7b
 
+
+# textvqa is the placeholder to notate the GenAI Bench data
 deepspeed seva/train_dpo_ours.py \
-    --lora_enable True --lora_r 1024 --lora_alpha 2048 --mm_projector_lr 0 \
+    --lora_enable True --lora_r 5 --lora_alpha 10 --mm_projector_lr 0 \
     --deepspeed seva/scripts/zero3.json \
-    --model_name_or_path checkpoints/llava-v1.5-7b \
+    --model_name_or_path ${MODEL_CKPT} \
     --version v1 \
-    --ocr_data_path ${OCR_DPO_DATA} \
-    --ocr_image_path data/ocr_vqa/images/ \
     --textvqa_data_path ${TEXT_DPO_DATA} \
-    --textvqa_image_path data/textvqa/train_images/ \
-    --vision_tower ./checkpoints/clip-vit-large-patch14-336 \
+    --textvqa_image_path /home/haoli/Documents/t2v_metrics/datasets/GenAI-Image-527/ \
+    --vision_tower openai/clip-vit-large-patch14-336 \
     --mm_projector_type mlp2x_gelu \
     --mm_vision_select_layer -2 \
     --mm_use_im_start_end False \
@@ -22,8 +23,8 @@ deepspeed seva/train_dpo_ours.py \
     --bf16 True \
     --output_dir checkpoints/${MODEL_VERSION} \
     --num_train_epochs 1 \
-    --per_device_train_batch_size 16 \
-    --per_device_eval_batch_size 4 \
+    --per_device_train_batch_size 1 \
+    --per_device_eval_batch_size 1 \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "no" \
     --save_strategy "steps" \
@@ -35,9 +36,10 @@ deepspeed seva/train_dpo_ours.py \
     --lr_scheduler_type "cosine" \
     --logging_steps 1 \
     --tf32 True \
+    --bits 4 \
     --model_max_length 2048 \
     --gradient_checkpointing True \
-    --dataloader_num_workers 4 \
+    --dataloader_num_workers 12 \
     --lazy_preprocess True \
     --report_to wandb \
     --run_name ${MODEL_VERSION} \

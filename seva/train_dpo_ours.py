@@ -1,5 +1,5 @@
 import os
-os.environ["WANDB_PROJECT"]="ha-dpo"
+os.environ["WANDB_PROJECT"]="vqascore-dpo"
 
 import json
 import copy
@@ -61,8 +61,6 @@ class DataArguments:
     is_multimodal: bool = False
     image_folder: Optional[str] = field(default="")
     image_aspect_ratio: str = 'square'
-    
-    
 
 # Define and parse arguments.
 @dataclass
@@ -188,7 +186,9 @@ def find_all_linear_names(model):
         lora_module_names.remove('lm_head')
     return list(lora_module_names)                                      
                                       
-    
+
+# TODO: the meat of the data logic is in these following two classes: Dataset and Collator    
+# TODO: where is the second image loaded? 
 class LazySupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
 
@@ -207,10 +207,10 @@ class LazySupervisedDataset(Dataset):
         list_data_dict = []
         # preprocess
 
-        if ocr_data_path is not None:
-            ocr_data = json.load(open(ocr_data_path, "r"))
-            ocr_data_dict = self.data_preprocess(ocr_data, ocr_image_path)
-            list_data_dict += ocr_data_dict * 2
+        # if ocr_data_path is not None:
+        #     ocr_data = json.load(open(ocr_data_path, "r"))
+        #     ocr_data_dict = self.data_preprocess(ocr_data, ocr_image_path)
+        #     list_data_dict += ocr_data_dict * 2
 
         if textvqa_data_path is not None:
             text_data = json.load(open(textvqa_data_path, "r"))
@@ -235,13 +235,14 @@ class LazySupervisedDataset(Dataset):
         our_data_dict = []
         for idx in range(len(our_data)):
             image_id = our_data[idx]["image_id"]
+            model_type = our_data[idx]["model_type"]
             chosen = our_data[idx]["chosen"]
             reject = our_data[idx]["reject"]
             question = our_data[idx]["question"]
             question = "<image>\n" + question
             our_data_dict.append({
                 "id": image_id,
-                "image":  os.path.join(our_data_path, image_id),
+                "image":  os.path.join(our_data_path, model_type, image_id),
                 "chosen_conversations": [
                     {"from": "human", "value": question},
                     {"from": "gpt", "value": chosen},
@@ -252,8 +253,6 @@ class LazySupervisedDataset(Dataset):
                 ],
             })
         return our_data_dict
-
-
 
 
     def __len__(self):
@@ -280,12 +279,14 @@ class LazySupervisedDataset(Dataset):
         sources = self.list_data_dict[i]
         if isinstance(i, int):
             sources = [sources]
-        assert len(sources) == 1, "Don't know why it is wrapped to a list"  # FIXME
+        # assert len(sources) == 1, "Don't know why it is wrapped to a list" 
         if 'image' in sources[0]:
             image_file = self.list_data_dict[i]['image']
             image_folder = self.data_args.image_folder
             processor = self.data_args.image_processor
-            image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
+            # OH! I'm stupid I thought they actually used the transformed image for training but they don't 
+            # They only use the transformed image to generate the negative text data for DPO
+            image = Image.open(os.path.join(image_folder, image_file)).convert('RGB') # image opened here
             if self.data_args.image_aspect_ratio == 'pad':
                 def expand2square(pil_img, background_color):
                     width, height = pil_img.size
