@@ -7,7 +7,7 @@ MODEL_CKPT=liuhaotian/llava-v1.5-7b
 
 # textvqa is the placeholder to notate the GenAI Bench data
 deepspeed seva/train_dpo_ours.py \
-    --lora_enable True --lora_r 5 --lora_alpha 10 --mm_projector_lr 0 \
+    --lora_enable True --lora_r 128 --lora_alpha 256 --mm_projector_lr 0 \
     --deepspeed seva/scripts/zero3.json \
     --model_name_or_path ${MODEL_CKPT} \
     --version v1 \
@@ -23,9 +23,9 @@ deepspeed seva/train_dpo_ours.py \
     --bf16 True \
     --output_dir checkpoints/${MODEL_VERSION} \
     --num_train_epochs 1 \
-    --per_device_train_batch_size 1 \
-    --per_device_eval_batch_size 1 \
-    --gradient_accumulation_steps 1 \
+    --per_device_train_batch_size 2 \
+    --per_device_eval_batch_size 2 \
+    --gradient_accumulation_steps 16 \
     --evaluation_strategy "no" \
     --save_strategy "steps" \
     --save_steps 50000 \
