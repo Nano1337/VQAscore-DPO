@@ -45,4 +45,5 @@ deepspeed seva/train_dpo_ours.py \
     --run_name ${MODEL_VERSION} \
     --beta 0.1
 
+# 4 bit training enables QLoRA training. Search script_args.bits in seva/train_dpo_ours.py for more details.
 

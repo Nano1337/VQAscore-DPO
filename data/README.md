@@ -36,3 +36,10 @@ python make_pair_ocrvqa.py
 python make_pair_textvqa.py
 ```
 It will obtain 'textvqa_dpo_8k_{aug_name}.json', 'ocrvqa_dpo_8k_{aug_name}.json', which the **final data for DPO training**. Finished!
+
+## TODO: 
+In t2v_metrics repo: 
+- in `models/vqascore_models/mm_utils.py`: 
+    - Make it less hacky by loading LoraConfig from the actual config file. Do we even need to load it ourselves since we're given a peft_model_id path already? 
+    - Find a way to pass in adaptor_path=None as default param and if it is not None then load the adaptor from that path.
+- Modify `seva/train_dpo_ours.py` to use CLIP-T5-XL model for DPO training. Need to include model factory like in t2v_metrics
