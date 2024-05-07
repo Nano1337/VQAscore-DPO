@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 from .base_dpo_trainer import BaseDPOTrainer
 
-class LlavaDPOTrainer(BaseDPOTrainer):
+class CLIPFlanT5DPOTrainer(BaseDPOTrainer):
         
     def concatenated_forward(
         self, model, inputs
@@ -32,31 +32,22 @@ class LlavaDPOTrainer(BaseDPOTrainer):
         batch_attention_mask[:chosen_attention_mask.shape[0], :chosen_attention_mask.shape[1]] = chosen_attention_mask
         batch_attention_mask[reject_attention_mask.shape[0]:, :reject_attention_mask.shape[1]] = reject_attention_mask
         
-        # prepare inputs
-        multimodal_preprocess_kwargs = {
-            "input_ids": batch_input_ids,
-            "attention_mask": batch_attention_mask,
-            "images": torch.cat([images, images], dim=0),
-            "labels": batch_labels,
-            "position_ids": None,
-            "past_key_values": None,
+        model_forward_kwargs = {
+            'input_ids': batch_input_ids,
+            'attention_mask': batch_attention_mask,
+            'decoder_attention_mask': batch_attention_mask,
+            'labels': batch_labels,
+            'images': torch.cat([images, images], dim=0),
+            'past_key_values': None,
+            'inputs_embeds': None,
+            'use_cache': None,
+            'output_attentions': None,
+            'output_hidden_states': None,
+            'return_dict': True,
         }
-        (
-            batch_input_ids,
-            batch_position_ids,
-            batch_attention_mask,
-            batch_past_key_values,
-            batch_inputs_embeds,
-            batch_labels
-        ) = self.model.prepare_inputs_labels_for_multimodal(
-            **multimodal_preprocess_kwargs
-        )
-        
         # calculate logits
         all_logits = model.forward(
-            inputs_embeds=batch_inputs_embeds,
-            labels=None,
-            attention_mask=batch_attention_mask,
+            **model_forward_kwargs
         ).logits.to(torch.float32)
 
         cal_batch_logp = self._get_batch_logps

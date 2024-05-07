@@ -111,8 +111,3 @@ If you find our paper or codebase useful, please consider cite
 
 ## Acknowledgement
 This repo is based on [HA-DPO](https://github.com/opendatalab/HA-DPO/) and [LLaVA](https://github.com/haotian-liu/LLaVA). We thank their efforts in building their codebase. 
-
-
-## TODO: 
-
-- Figure out how to load saved QLoRa Weights for inference in LLaVA evals

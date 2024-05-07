@@ -33,7 +33,6 @@ from peft import (
     set_peft_model_state_dict,
 )
 
-from trainer.llava_dpo_trainer import LlavaDPOTrainer
 
 local_rank = None
         
@@ -243,7 +242,7 @@ class LazySupervisedDataset(Dataset):
             our_data_dict.append({
                 "id": image_id,
                 "image":  os.path.join(our_data_path, model_type, image_id),
-                "chosen_conversations": [
+                "chosen_conversations": [ 
                     {"from": "human", "value": question},
                     {"from": "gpt", "value": chosen},
                 ],
@@ -546,6 +545,7 @@ def setup_llava_model(model_args, data_args, script_args):
             )
         ))
 
+    # NOTE: init model here
     if model_args.vision_tower is not None:
         if 'mpt' in model_args.model_name_or_path:
             config = transformers.AutoConfig.from_pretrained(model_args.model_name_or_path, trust_remote_code=True)
@@ -553,6 +553,12 @@ def setup_llava_model(model_args, data_args, script_args):
             model = LlavaMPTForCausalLM.from_pretrained(
                 model_args.model_name_or_path,
                 config=config,
+                cache_dir=script_args.cache_dir,
+                **bnb_model_from_pretrained_args
+            )
+        elif 't5' in model_args.model_name_or_path: 
+            model = CLIPT5ForConditionalGeneration.from_pretrained(
+                model_args.model_name_or_path,
                 cache_dir=script_args.cache_dir,
                 **bnb_model_from_pretrained_args
             )
@@ -601,10 +607,11 @@ def setup_llava_model(model_args, data_args, script_args):
 
     if script_args.lora_enable:
         from peft import LoraConfig, get_peft_model
+        targetmods = ('.q', '.k', '.v', '.o', '.wi_1', '.wi_0', '.wo') if "clip-flant5" in model_args.model_name_or_path else tuple(find_all_linear_names(model)),
         lora_config = LoraConfig(
             r=script_args.lora_r,
             lora_alpha=script_args.lora_alpha,
-            target_modules=find_all_linear_names(model),
+            target_modules=targetmods,
             lora_dropout=script_args.lora_dropout,
             bias=script_args.lora_bias,
             task_type="CAUSAL_LM",
@@ -628,9 +635,24 @@ def setup_llava_model(model_args, data_args, script_args):
 
     # exit()
 
+    # NOTE: init tokenizers here
     if 'mpt' in model_args.model_name_or_path:
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             model_args.model_name_or_path,
+            cache_dir=script_args.cache_dir,
+            model_max_length=script_args.model_max_length,
+            padding_side="right"
+        )
+    elif 't5-xl' in model_args.model_name_or_path:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            "google/flan-t5-xl",
+            cache_dir=script_args.cache_dir,
+            model_max_length=script_args.model_max_length,
+            padding_side="right"
+        )
+    elif 't5-xxl' in model_args.model_name_or_path:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            "google/flan-t5-xxl",
             cache_dir=script_args.cache_dir,
             model_max_length=script_args.model_max_length,
             padding_side="right"
@@ -708,7 +730,8 @@ def setup_llava_model(model_args, data_args, script_args):
         model.config.mm_projector_lr = script_args.mm_projector_lr
         script_args.use_im_start_end = model_args.mm_use_im_start_end
         model.config.mm_use_im_patch_token = model_args.mm_use_im_patch_token
-        model.initialize_vision_tokenizer(model_args, tokenizer=tokenizer)
+        if model_args.mm_use_im_start_end or model_args.mm_use_im_patch_token:
+            model.initialize_vision_tokenizer(model_args, tokenizer=tokenizer)
 
 
     if script_args.bits in [4, 8]:
@@ -793,16 +816,32 @@ def main():
 
     
     # initialize the DPO trainer
-    dpo_trainer = LlavaDPOTrainer(
-        model=llava_policy_model,
-        ref_model=llava_ref_model,
-        args=training_args,
-        beta=script_args.beta,
-        tokenizer=tokenizer,
-        max_prompt_length=script_args.max_prompt_length,
-        max_length=script_args.max_length,
-        **data_module,
-    )
+    if "flant5" in model_args.model_name_or_path:
+        from trainer.clipflant5_dpo_trainer import CLIPFlanT5DPOTrainer
+        dpo_trainer = CLIPFlanT5DPOTrainer(
+            model=llava_policy_model,
+            ref_model=llava_ref_model,
+            args=training_args,
+            beta=script_args.beta,
+            tokenizer=tokenizer,
+            max_prompt_length=script_args.max_prompt_length,
+            max_length=script_args.max_length,
+            **data_module,
+        )
+    elif "llava" in model_args.model_name_or_path:
+        from trainer.llava_dpo_trainer import LlavaDPOTrainer
+        dpo_trainer = LlavaDPOTrainer(
+            model=llava_policy_model,
+            ref_model=llava_ref_model,
+            args=training_args,
+            beta=script_args.beta,
+            tokenizer=tokenizer,
+            max_prompt_length=script_args.max_prompt_length,
+            max_length=script_args.max_length,
+            **data_module,
+        )
+    else: 
+        raise NotImplementedError(f"model_name_or_path: {model_args.model_name_or_path} not supported")
 
     
     dpo_trainer.add_callback(SaverCallback())

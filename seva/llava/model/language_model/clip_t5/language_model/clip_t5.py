@@ -199,7 +199,7 @@ class CLIPT5ForConditionalGeneration(T5ForConditionalGeneration):
         _, attention_mask, decoder_attention_mask, past_key_values, inputs_embeds, labels = \
             self.prepare_inputs_labels_for_multimodal(input_ids, attention_mask, decoder_attention_mask, past_key_values, labels, images)
 
-        # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
+        # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn) but .logits is called
         outputs = super(CLIPT5ForConditionalGeneration, self).forward(
             input_ids=None, # will be None if inputs_embeds is not None
             attention_mask=attention_mask,

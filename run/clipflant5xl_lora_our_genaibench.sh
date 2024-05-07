@@ -2,14 +2,16 @@ MODEL_VERSION=clip_flant5_xl_loraft_dpo_hardneg
 
 TEXT_DPO_DATA=/home/haoli/Documents/t2v_metrics/datasets/GenAI-Image-527/genaibench_dpo_dataset.json
 # MODEL_CKPT=/home/haoli/Documents/t2v_metrics/hf_cache/models--liuhaotian--llava-v1.5-7b/snapshots/12e054b30e8e061f423c7264bc97d4248232e965
-MODEL_CKPT=liuhaotian/llava-v1.5-7b
+# MODEL_CKPT=liuhaotian/llava-v1.5-7b
+MODEL_CKPT=zhiqiulin/clip-flant5-xl
+# MODEL_CKPT=/home/haoli/Documents/t2v_metrics/hf_cache/models--zhiqiulin--clip-flant5-xl/snapshots/2cee5afb3386792d9b21066a89232687dfce2c62
 
 # textvqa is the placeholder to notate the GenAI Bench data
 deepspeed seva/train_dpo_ours.py \
     --lora_enable True --lora_r 128 --lora_alpha 256 --mm_projector_lr 0 \
     --deepspeed seva/scripts/zero3.json \
     --model_name_or_path ${MODEL_CKPT} \
-    --version v1 \
+    --version t5_chat \
     --textvqa_data_path ${TEXT_DPO_DATA} \
     --textvqa_image_path /home/haoli/Documents/t2v_metrics/datasets/GenAI-Image-527/ \
     --vision_tower openai/clip-vit-large-patch14-336 \

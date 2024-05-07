@@ -10,6 +10,7 @@ class SeparatorStyle(Enum):
     MPT = auto()
     PLAIN = auto()
     LLAMA_2 = auto()
+    T5_CHAT = auto()
 
 
 @dataclasses.dataclass
@@ -48,6 +49,15 @@ class Conversation:
                     ret += role + ": " + message + self.sep
                 else:
                     ret += role + ":"
+        elif self.sep_style == SeparatorStyle.T5_CHAT:
+            DEFAULT_IMAGE_TOKEN = "<image>"
+            ret = self.system + " USER: " + DEFAULT_IMAGE_TOKEN + "\n"
+            for role, message in messages:
+                if message:
+                    if type(message) is tuple:
+                        message, _, _ = message
+                    ret += message + " "
+                ret += "ASSISTANT: "
         elif self.sep_style == SeparatorStyle.TWO:
             seps = [self.sep, self.sep2]
             ret = self.system + seps[0]
@@ -101,6 +111,9 @@ class Conversation:
         else:
             raise ValueError(f"Invalid style: {self.sep_style}")
 
+        # TODO: check conversation format for flant5 model later
+        print("CLIP-FlanT5 conversation format:", ret)
+        exit()
         return ret
 
     def append_message(self, role, message):
@@ -298,6 +311,17 @@ A conversation between a user and an LLM-based AI assistant. The assistant gives
     sep="<|im_end|>",
 )
 
+conv_t5_chat = Conversation(
+    system="A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.",
+    roles=("USER", "ASSISTANT"),
+    version="t5_chat",
+    messages=(),
+    offset=0,
+    sep_style=SeparatorStyle.T5_CHAT, 
+    sep="<s>",
+    sep2="</s>",
+)
+
 conv_llava_plain = Conversation(
     system="",
     roles=("", ""),
@@ -374,6 +398,8 @@ conv_templates = {
     "llava_llama_2": conv_llava_llama_2,
 
     "mpt": conv_mpt,
+    "t5_chat": conv_t5_chat,
+    
 }
 
 
