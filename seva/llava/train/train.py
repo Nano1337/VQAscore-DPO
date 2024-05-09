@@ -487,6 +487,68 @@ def preprocess_v1(
     )
 
 
+def t5_tokenizer_image_token(prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX, return_tensors=None):
+    prompt_chunks = [tokenizer(chunk).input_ids for chunk in prompt.split('<image>')]
+
+    def insert_separator(X, sep):
+        return [ele for sublist in zip(X, [sep]*len(X)) for ele in sublist][:-1]
+
+    input_ids = []
+    # Since there's no bos_token_id, simply concatenate the tokenized prompt_chunks with the image_token_index
+    for x in insert_separator(prompt_chunks, [image_token_index]):
+        input_ids.extend(x)
+
+    if return_tensors is not None:
+        if return_tensors == 'pt':
+            return torch.tensor(input_ids, dtype=torch.long)
+        raise ValueError(f'Unsupported tensor type: {return_tensors}')
+    return input_ids
+
+
+def preprocess_t5_chat(
+    sources,
+    tokenizer: transformers.PreTrainedTokenizer,
+    has_image: bool = False
+) -> Dict:
+    conv = conversation_lib.default_conversation.copy()
+    conv.sep_style = conversation_lib.SeparatorStyle.T5_CHAT
+
+    #FIXME: refer to tokenization in forward of clip_t5_model.py
+    roles = {"human": conv.roles[0], "gpt": conv.roles[1]}
+
+    # Apply prompt templates
+    conversations = []
+    for i, source in enumerate(sources):
+        if roles[source[0]["from"]] != conv.roles[0]:
+            # Skip the first one if it is not from human
+            source = source[1:]
+
+        conv.messages = []
+        for j, sentence in enumerate(source):
+            role = roles[sentence["from"]]
+            assert role == conv.roles[j % 2], f"{i}"
+            message = sentence["value"]
+            conv.append_message(role, message)
+        conversations.append(conv.get_prompt())
+
+    questions = []
+    answers = []    
+    response = " ASSISTANT: "
+    # everything after the response should be in answers
+    for conversation in conversations:
+        parts = conversation.split(response)
+        questions.append(parts[0] + response)
+        answers.append(parts[1])
+
+    input_ids = [t5_tokenizer_image_token(qs, tokenizer, return_tensors='pt') for qs in questions]
+    labels = [t5_tokenizer_image_token(ans, tokenizer, return_tensors='pt') for ans in answers]
+    
+    return dict(
+        input_ids=input_ids,
+        labels=labels,
+    )
+
+
 def preprocess_mpt(
     sources,
     tokenizer: transformers.PreTrainedTokenizer,
@@ -595,6 +657,8 @@ def preprocess(
         return preprocess_v1(sources, tokenizer, has_image=has_image)
     if conversation_lib.default_conversation.version == "mpt":
         return preprocess_mpt(sources, tokenizer)
+    if conversation_lib.default_conversation.version == "t5_chat":
+        return preprocess_t5_chat(sources, tokenizer, has_image=has_image)
     # add end signal and concatenate together
     conversations = []
     for source in sources:

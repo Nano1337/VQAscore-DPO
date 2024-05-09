@@ -187,7 +187,6 @@ def find_all_linear_names(model):
                                       
 
 # TODO: the meat of the data logic is in these following two classes: Dataset and Collator    
-# TODO: where is the second image loaded? 
 class LazySupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
 
@@ -371,7 +370,10 @@ class DataCollatorForSupervisedDataset(object):
             reject_labels=reject_labels,
             chosen_attention_mask=chosen_input_ids.ne(self.tokenizer.pad_token_id),
             reject_attention_mask=reject_input_ids.ne(self.tokenizer.pad_token_id),
+            chosen_decoder_attention_mask = chosen_labels.ne(IGNORE_INDEX),
+            reject_decoder_attention_mask = reject_labels.ne(IGNORE_INDEX),
         )
+
 
         if 'images' in instances[0]:
             images = [instance['images'] for instance in instances]
@@ -557,11 +559,17 @@ def setup_llava_model(model_args, data_args, script_args):
                 **bnb_model_from_pretrained_args
             )
         elif 't5' in model_args.model_name_or_path: 
+            config = transformers.AutoConfig.from_pretrained(model_args.model_name_or_path, trust_remote_code=True)
+            config.model_type = "clip_t5"
             model = CLIPT5ForConditionalGeneration.from_pretrained(
                 model_args.model_name_or_path,
+                config=config,
                 cache_dir=script_args.cache_dir,
                 **bnb_model_from_pretrained_args
             )
+            """
+            It seems that embed_token.weights isn't loaded properly when using the bnb configs? 
+            """
         else:
             model = LlavaLlamaForCausalLM.from_pretrained(
                 model_args.model_name_or_path,
@@ -596,7 +604,6 @@ def setup_llava_model(model_args, data_args, script_args):
         from peft import prepare_model_for_kbit_training
         model.config.torch_dtype=(torch.float32 if script_args.fp16 else (torch.bfloat16 if script_args.bf16 else torch.float32))
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=script_args.gradient_checkpointing)
-
     if script_args.gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
@@ -607,6 +614,7 @@ def setup_llava_model(model_args, data_args, script_args):
 
     if script_args.lora_enable:
         from peft import LoraConfig, get_peft_model
+        # NOTE: remove the period when saving and loading
         targetmods = ('.q', '.k', '.v', '.o', '.wi_1', '.wi_0', '.wo') if "clip-flant5" in model_args.model_name_or_path else tuple(find_all_linear_names(model)),
         lora_config = LoraConfig(
             r=script_args.lora_r,
@@ -624,16 +632,15 @@ def setup_llava_model(model_args, data_args, script_args):
         rank0_print("Adding LoRA adapters...")
         model = get_peft_model(model, lora_config)
 
-    ### Initialize LLM's LORA
-    ### 1. LLM's exclude {token_embed, lm_head} requires_grad=True
-    ### 2. MLP's params requires_grad=False
+    # ## Initialize LLM's LORA
+    # ## 1. LLM's exclude {token_embed, lm_head} requires_grad=True
+    # ## 2. MLP's params requires_grad=False
     # for k,v in model.named_parameters():
     #     if v.requires_grad == True:
     #         print("True", k)
     #     else:
     #         print("False", k)
 
-    # exit()
 
     # NOTE: init tokenizers here
     if 'mpt' in model_args.model_name_or_path:

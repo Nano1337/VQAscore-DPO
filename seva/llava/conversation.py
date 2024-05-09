@@ -51,13 +51,16 @@ class Conversation:
                     ret += role + ":"
         elif self.sep_style == SeparatorStyle.T5_CHAT:
             DEFAULT_IMAGE_TOKEN = "<image>"
-            ret = self.system + " USER: " + DEFAULT_IMAGE_TOKEN + "\n"
+            ret = self.system
             for role, message in messages:
-                if message:
+                if 'U' in role:
                     if type(message) is tuple:
                         message, _, _ = message
                     ret += message + " "
-                ret += "ASSISTANT: "
+                elif "S" in role: 
+                    if type(message) is tuple:
+                        message, _, _ = message
+                    ret += "ASSISTANT: " + message
         elif self.sep_style == SeparatorStyle.TWO:
             seps = [self.sep, self.sep2]
             ret = self.system + seps[0]
@@ -111,9 +114,6 @@ class Conversation:
         else:
             raise ValueError(f"Invalid style: {self.sep_style}")
 
-        # TODO: check conversation format for flant5 model later
-        print("CLIP-FlanT5 conversation format:", ret)
-        exit()
         return ret
 
     def append_message(self, role, message):

@@ -13,29 +13,35 @@ class CLIPFlanT5DPOTrainer(BaseDPOTrainer):
     def concatenated_forward(
         self, model, inputs
     ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+
         images = inputs["images"]
         chosen_input_ids = inputs["chosen_input_ids"]
         chosen_labels = inputs["chosen_labels"]
         chosen_attention_mask = inputs["chosen_attention_mask"]
+        chosen_decoder_attention_mask = inputs["chosen_decoder_attention_mask"]
         reject_input_ids = inputs["reject_input_ids"]
         reject_labels = inputs["reject_labels"]
         reject_attention_mask = inputs["reject_attention_mask"]
-            
+        reject_decoder_attention_mask = inputs["reject_decoder_attention_mask"]
+    
         max_dim = max(chosen_input_ids.shape[1], reject_input_ids.shape[1])
         batch_input_ids = torch.zeros((chosen_input_ids.shape[0]*2, max_dim), dtype=chosen_input_ids.dtype, device=chosen_input_ids.device)
         batch_labels = torch.ones((chosen_input_ids.shape[0]*2, max_dim), dtype=chosen_labels.dtype, device=chosen_labels.device) * -100
         batch_attention_mask = torch.zeros((chosen_input_ids.shape[0]*2, max_dim), device=chosen_attention_mask.device).to(torch.bool)
+        batch_decoder_attention_mask = torch.zeros((chosen_input_ids.shape[0]*2, max_dim), device=chosen_attention_mask.device).to(torch.bool)
         batch_input_ids[:chosen_input_ids.shape[0], :chosen_input_ids.shape[1]] = chosen_input_ids
         batch_input_ids[reject_input_ids.shape[0]:, :reject_input_ids.shape[1]] = reject_input_ids
         batch_labels[:chosen_labels.shape[0], :chosen_labels.shape[1]] = chosen_labels
         batch_labels[reject_labels.shape[0]:, :reject_labels.shape[1]] = reject_labels
         batch_attention_mask[:chosen_attention_mask.shape[0], :chosen_attention_mask.shape[1]] = chosen_attention_mask
         batch_attention_mask[reject_attention_mask.shape[0]:, :reject_attention_mask.shape[1]] = reject_attention_mask
-        
+        batch_decoder_attention_mask[:chosen_decoder_attention_mask.shape[0], :chosen_decoder_attention_mask.shape[1]] = chosen_decoder_attention_mask
+        batch_decoder_attention_mask[reject_decoder_attention_mask.shape[0]:, :reject_decoder_attention_mask.shape[1]] = reject_decoder_attention_mask
+
         model_forward_kwargs = {
             'input_ids': batch_input_ids,
             'attention_mask': batch_attention_mask,
-            'decoder_attention_mask': batch_attention_mask,
+            'decoder_attention_mask': batch_decoder_attention_mask,
             'labels': batch_labels,
             'images': torch.cat([images, images], dim=0),
             'past_key_values': None,
