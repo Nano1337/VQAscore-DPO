@@ -54,7 +54,7 @@ class CLIPFlanT5DPOTrainer(BaseDPOTrainer):
         # calculate logits
         all_logits = model.forward(
             **model_forward_kwargs
-        ).logits.to(torch.float32)
+        ).logits.to(torch.float32) # Shape (B*2, S, H), H=32128
 
         cal_batch_logp = self._get_batch_logps
         all_logps = cal_batch_logp(
@@ -76,7 +76,14 @@ class CLIPFlanT5DPOTrainer(BaseDPOTrainer):
         rejected_logits = [l.detach().cpu().mean() for l in rejected_logits]
         chosen_logits = sum(chosen_logits)/len_chosen
         rejected_logits = sum(rejected_logits)/len_chosen
-        
+
+        # find output ids given logits
+        chosen_output_ids = torch.argmax(chosen_logits, dim=-1)
+        rejected_output_ids = torch.argmax(rejected_logits, dim=-1)
+
+        print(f"Chosen output ids: {chosen_output_ids}")
+        print(f"Rejected output ids: {rejected_output_ids}")
+        # FIXME: these are all padding tokens of id 0...
         return (chosen_logps, rejected_logps, chosen_logits, rejected_logits)
 
     def get_batch_metrics(
