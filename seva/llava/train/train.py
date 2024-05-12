@@ -542,7 +542,7 @@ def preprocess_t5_chat(
 
     input_ids = [t5_tokenizer_image_token(qs, tokenizer, return_tensors='pt') for qs in questions]
     labels = [t5_tokenizer_image_token(ans, tokenizer, return_tensors='pt') for ans in answers]
-    
+
     return dict(
         input_ids=input_ids,
         labels=labels,

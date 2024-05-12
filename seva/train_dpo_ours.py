@@ -318,6 +318,7 @@ class LazySupervisedDataset(Dataset):
             reject_sources,
             self.tokenizer,
             has_image=('image' in self.list_data_dict[i]))
+
         if isinstance(i, int):
             data_dict = dict(
                 chosen_input_ids=chosen_data_dict["input_ids"][0],

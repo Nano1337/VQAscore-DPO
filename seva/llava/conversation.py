@@ -56,7 +56,7 @@ class Conversation:
                 if 'U' in role:
                     if type(message) is tuple:
                         message, _, _ = message
-                    ret += message + " "
+                    ret += " USER: " +  message + " "
                 elif "S" in role: 
                     if type(message) is tuple:
                         message, _, _ = message

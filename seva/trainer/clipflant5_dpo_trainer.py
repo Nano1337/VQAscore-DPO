@@ -9,6 +9,12 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 from .base_dpo_trainer import BaseDPOTrainer
 
 class CLIPFlanT5DPOTrainer(BaseDPOTrainer):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # NOTE: this setting is VERY IMPORTANT for T5 architectures, an encoder-decoder
+        self.is_encoder_decoder = True
         
     def concatenated_forward(
         self, model, inputs
@@ -62,11 +68,11 @@ class CLIPFlanT5DPOTrainer(BaseDPOTrainer):
             batch_labels,
             average_log_prob=False,
         )
-        
+
         len_chosen = chosen_input_ids.shape[0]
         chosen_logps = all_logps[:len_chosen]
         rejected_logps = all_logps[len_chosen:]
-        
+
         # don't count image embeds logits
         loss_mask = batch_labels != -100
         logits = [all_logits[i][loss_mask[i]] for i in range(loss_mask.shape[0])]
@@ -77,13 +83,6 @@ class CLIPFlanT5DPOTrainer(BaseDPOTrainer):
         chosen_logits = sum(chosen_logits)/len_chosen
         rejected_logits = sum(rejected_logits)/len_chosen
 
-        # find output ids given logits
-        chosen_output_ids = torch.argmax(chosen_logits, dim=-1)
-        rejected_output_ids = torch.argmax(rejected_logits, dim=-1)
-
-        print(f"Chosen output ids: {chosen_output_ids}")
-        print(f"Rejected output ids: {rejected_output_ids}")
-        # FIXME: these are all padding tokens of id 0...
         return (chosen_logps, rejected_logps, chosen_logits, rejected_logits)
 
     def get_batch_metrics(

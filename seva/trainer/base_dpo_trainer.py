@@ -331,7 +331,7 @@ class BaseDPOTrainer(Trainer):
 
         # dummy token; we'll ignore the losses on these tokens later
         labels[labels == self.label_pad_token_id] = 0
-
+        
         per_token_logps = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
 
         if average_log_prob:
