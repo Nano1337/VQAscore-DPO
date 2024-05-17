@@ -544,3 +544,44 @@ class DPODataCollatorWithPaddingAndImage:
         # return collated batch
         return self.collate(features)
     
+
+def pad_to_length(tensor: torch.Tensor, length: int, pad_value: Union[int, float], dim: int = -1) -> torch.Tensor:
+    if tensor.size(dim) >= length:
+        return tensor
+    else:
+        pad_size = list(tensor.shape)
+        pad_size[dim] = length - tensor.size(dim)
+        return torch.cat(
+            [
+                tensor,
+                pad_value * torch.ones(*pad_size, dtype=tensor.dtype, device=tensor.device),
+            ],
+            dim=dim,
+        )
+
+def peft_module_casting_to_bf16(model):
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.LayerNorm) or "norm" in name:
+            module = module.to(torch.float32)
+        elif any(x in name for x in ["lm_head", "embed_tokens", "wte", "wpe"]):
+            if hasattr(module, "weight"):
+                if module.weight.dtype == torch.float32:
+                    module = module.to(torch.bfloat16)
+
+
+def trl_sanitze_kwargs_for_tagging(model, tag_names, kwargs=None):
+    if is_unsloth_available():
+        # Unsloth adds a new attribute in the model config `unsloth_version`
+        # to keep track of models that have been patched with unsloth.
+        if hasattr(model, "config") and getattr(model.config, "unsloth_version", None) is not None:
+            tag_names.append("unsloth")
+
+    if kwargs is not None:
+        if "tags" not in kwargs:
+            kwargs["tags"] = tag_names
+        elif "tags" in kwargs and isinstance(kwargs["tags"], list):
+            kwargs["tags"].extend(tag_names)
+        elif "tags" in kwargs and isinstance(kwargs["tags"], str):
+            tag_names.append(kwargs["tags"])
+            kwargs["tags"] = tag_names
+    return kwargs

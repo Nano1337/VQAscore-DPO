@@ -1,4 +1,4 @@
-MODEL_VERSION=clip_flant5_xl_loraft_dpo_hardneg
+MODEL_VERSION=llava_loraft_orpo_hardneg_lr6e-6_beta1.0
 
 TEXT_DPO_DATA=/home/haoli/Documents/t2v_metrics/datasets/GenAI-Image-527/genaibench_dpo_dataset.json
 # MODEL_CKPT=/home/haoli/Documents/t2v_metrics/hf_cache/models--liuhaotian--llava-v1.5-7b/snapshots/12e054b30e8e061f423c7264bc97d4248232e965
@@ -29,7 +29,7 @@ deepspeed seva/train_dpo_ours.py \
     --save_strategy "steps" \
     --save_steps 50000 \
     --save_total_limit 1 \
-    --learning_rate 2e-6 \
+    --learning_rate 6e-6 \
     --weight_decay 0. \
     --warmup_steps 0 \
     --lr_scheduler_type "cosine" \
@@ -42,7 +42,7 @@ deepspeed seva/train_dpo_ours.py \
     --lazy_preprocess True \
     --report_to wandb \
     --run_name ${MODEL_VERSION} \
-    --beta 0.1
+    --beta 1.0
 
 # 4 bit training enables QLoRA training. Search script_args.bits in seva/train_dpo_ours.py for more details.
 

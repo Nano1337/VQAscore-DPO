@@ -823,7 +823,7 @@ def main():
     )
 
     
-    # initialize the DPO trainer
+    # initialize the trainer
     if "flant5" in model_args.model_name_or_path:
         from trainer.clipflant5_dpo_trainer import CLIPFlanT5DPOTrainer
         dpo_trainer = CLIPFlanT5DPOTrainer(
@@ -837,17 +837,50 @@ def main():
             **data_module,
         )
     elif "llava" in model_args.model_name_or_path:
-        from trainer.llava_dpo_trainer import LlavaDPOTrainer
-        dpo_trainer = LlavaDPOTrainer(
-            model=llava_policy_model,
-            ref_model=llava_ref_model,
-            args=training_args,
-            beta=script_args.beta,
-            tokenizer=tokenizer,
-            max_prompt_length=script_args.max_prompt_length,
+        # from trainer.llava_dpo_trainer import LlavaDPOTrainer
+        # dpo_trainer = LlavaDPOTrainer(
+        #     model=llava_policy_model,
+        #     ref_model=llava_ref_model,
+        #     args=training_args,
+        #     beta=script_args.beta,
+        #     tokenizer=tokenizer,
+        #     max_prompt_length=script_args.max_prompt_length,
+        #     max_length=script_args.max_length,
+        #     **data_module,
+        # )
+        # FIXME: implement better way to switch between ORPO and DPO
+        from trainer.llava_orpo_trainer import LlavaORPOTrainer
+        from trainer.orpo_config import ORPOConfig
+        from dataclasses import fields
+
+        orpo_config = ORPOConfig(
             max_length=script_args.max_length,
+            max_prompt_length=script_args.max_prompt_length,
+            max_completion_length=script_args.max_length,
+            beta=script_args.beta,
+            disable_dropout=False,
+            label_pad_token_id=-100,
+            padding_value=tokenizer.pad_token_id,
+            truncation_mode="keep_end",
+            generate_during_eval=False, 
+            is_encoder_decoder=False, 
+            model_init_kwargs=None,
+            dataset_num_proc=script_args.dataloader_num_workers,
+            output_dir=script_args.output_dir,
+        )
+
+        # iterate through orpo config and set attributes in training_args if not already existing
+        for field in fields(ORPOConfig):
+            if not hasattr(training_args, field.name):
+                setattr(training_args, field.name, getattr(orpo_config, field.name))
+
+        dpo_trainer = LlavaORPOTrainer(
+            model=llava_policy_model,
+            args=training_args, # TODO: include ORPO-specific configs
+            tokenizer=tokenizer,  
             **data_module,
         )
+
     else: 
         raise NotImplementedError(f"model_name_or_path: {model_args.model_name_or_path} not supported")
 

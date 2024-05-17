@@ -74,14 +74,43 @@ class CLIPFlanT5DPOTrainer(BaseDPOTrainer):
         rejected_logps = all_logps[len_chosen:]
 
         # don't count image embeds logits
-        loss_mask = batch_labels != -100
+        loss_mask = batch_labels != 0 # self._get_batch_logps already modified to zero out -100 pad id
+        # logits = all_logits[loss_mask]
+
+        """
+        All logits shape is (B*2, S, H)
+        Loss mask shape is (B*2, S)
+        Logits after applying loss mask is [(2, H)]*B*2 where 2 is the response and stop token
+        TODO: can modify logic below to handle parallelization fairly easily
+        """
+
         logits = [all_logits[i][loss_mask[i]] for i in range(loss_mask.shape[0])]
+
         chosen_logits = logits[:len_chosen]
         rejected_logits = logits[len_chosen:]
-        chosen_logits = [l.detach().cpu().mean() for l in chosen_logits]
-        rejected_logits = [l.detach().cpu().mean() for l in rejected_logits]
+
+        # print("Chosen logits array", chosen_logits)
+        # print("Rejected logits array", rejected_logits)
+        # exit()
+
+        chosen_logits = [l.detach().cpu() for l in chosen_logits]
+        rejected_logits = [l.detach().cpu() for l in rejected_logits]
+
+        # instead of averaging across all logits, find argmax of each tensor then average those logits
+        assert len(chosen_logits) == len(rejected_logits)
+        for i in range(len(chosen_logits)): 
+            chosen_logits[i] = torch.mean(torch.max(chosen_logits[i], dim=-1).values)
+            rejected_logits[i] = torch.mean(torch.max(rejected_logits[i], dim=-1).values)
+
+        # print("Chose logits argmax", chosen_logits)
+        # print("Rejected logits argmax", rejected_logits)
+
         chosen_logits = sum(chosen_logits)/len_chosen
         rejected_logits = sum(rejected_logits)/len_chosen
+
+        # print("Chosen logits avg", chosen_logits)
+        # print("Rejected logits avg", rejected_logits)
+        # exit()
 
         return (chosen_logps, rejected_logps, chosen_logits, rejected_logits)
 

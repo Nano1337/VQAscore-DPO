@@ -75,10 +75,16 @@ class LlavaDPOTrainer(BaseDPOTrainer):
         logits = [all_logits[i][loss_mask[i]] for i in range(loss_mask.shape[0])]
         chosen_logits = logits[:len_chosen]
         rejected_logits = logits[len_chosen:]
+
+
         chosen_logits = [l.detach().cpu().mean() for l in chosen_logits]
         rejected_logits = [l.detach().cpu().mean() for l in rejected_logits]
         chosen_logits = sum(chosen_logits)/len_chosen
         rejected_logits = sum(rejected_logits)/len_chosen
+
+        # print("chosen_logits sum", chosen_logits)
+        # print("rejected_logits sum", rejected_logits)
+        # exit()
         
         return (chosen_logps, rejected_logps, chosen_logits, rejected_logits)
 

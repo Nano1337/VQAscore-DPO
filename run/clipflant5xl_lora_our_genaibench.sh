@@ -1,4 +1,4 @@
-MODEL_VERSION=clip_flant5_xl_loraft_dpo_hardneg
+MODEL_VERSION=clip_flant5_xl_loraft_dpo_hardneg_lr4e-6_r64_a128_beta0.6
 
 TEXT_DPO_DATA=/home/haoli/Documents/t2v_metrics/datasets/GenAI-Image-527/genaibench_dpo_dataset.json
 # MODEL_CKPT=/home/haoli/Documents/t2v_metrics/hf_cache/models--liuhaotian--llava-v1.5-7b/snapshots/12e054b30e8e061f423c7264bc97d4248232e965
@@ -8,7 +8,7 @@ MODEL_CKPT=zhiqiulin/clip-flant5-xl
 
 # textvqa is the placeholder to notate the GenAI Bench data
 deepspeed seva/train_dpo_ours.py \
-    --lora_enable True --lora_r 128 --lora_alpha 256 --mm_projector_lr 0 \
+    --lora_enable True --lora_r 64 --lora_alpha 128 --mm_projector_lr 0 \
     --deepspeed seva/scripts/zero3.json \
     --model_name_or_path ${MODEL_CKPT} \
     --version t5_chat \
@@ -24,14 +24,14 @@ deepspeed seva/train_dpo_ours.py \
     --bf16 True \
     --output_dir checkpoints/${MODEL_VERSION} \
     --num_train_epochs 1 \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 8 \
-    --gradient_accumulation_steps 4 \
+    --per_device_train_batch_size 12 \
+    --per_device_eval_batch_size 12 \
+    --gradient_accumulation_steps 3 \
     --evaluation_strategy "no" \
     --save_strategy "steps" \
     --save_steps 50000 \
     --save_total_limit 1 \
-    --learning_rate 2e-6 \
+    --learning_rate 4e-6 \
     --weight_decay 0. \
     --warmup_steps 0 \
     --lr_scheduler_type "cosine" \
@@ -44,7 +44,7 @@ deepspeed seva/train_dpo_ours.py \
     --lazy_preprocess True \
     --report_to wandb \
     --run_name ${MODEL_VERSION} \
-    --beta 0.1
+    --beta 0.6
 
 # 4 bit training enables QLoRA training. Search script_args.bits in seva/train_dpo_ours.py for more details.
 
